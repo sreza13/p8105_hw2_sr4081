@@ -2,7 +2,8 @@
 title: "HW2_Markdown"
 author: "Samiha Reza"
 date: "2024-10-05"
-output: html_document
+output:
+  md_document: github_document
 ---
 
 ```{r setup, include=FALSE}
@@ -10,6 +11,8 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(dplyr)
 library(readxl)
+usethis::create_github_token()
+
 ```
 
 ## Question 1
