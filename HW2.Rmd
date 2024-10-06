@@ -1,0 +1,198 @@
+---
+title: "HW2_Markdown"
+author: "Samiha Reza"
+date: "2024-10-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(dplyr)
+library(readxl)
+```
+
+## Question 1
+
+``` {r loaddata1, echo = FALSE}
+nyc_subway <- read.csv("./NYC_Transit_Subway_Entrance_And_Exit_Data.csv", 
+              header = TRUE, 
+              sep = "," ,
+              na = c("NA", "")) |>
+              janitor::clean_names() |>
+              select(line:station_longitude, starts_with("route"), 
+              entry, vending, entrance_type, ada) |>
+              mutate(entry = ifelse(entry == "YES", TRUE, FALSE))
+```
+
+The cleaned dataset has `r ncol(nyc_subway)` variables: `r names(nyc_subway)`. I have formatted variables using "janitor::clean_names", and used "select()" to specify which variables to keep from the original dataset. Then I used "mutate()" to change "entry" from a character to a logic variable. The dimensions are `r nrow(nyc_subway)` x `r ncol(nyc_subway)`. The data is not tidy because there are some repeat observations instead of having one row per station observation. 
+
+Below are the code chunks used to answer questions: 
+
+``` {r questions}
+distinct_stations <- nyc_subway |>
+  distinct(station_name, line)
+
+ada_number <- nyc_subway |>
+  filter(ada == TRUE) |>
+  distinct(station_name, line) |>
+  nrow()
+
+no_vending <- nyc_subway |>
+  filter(vending == "NO") |>
+  distinct(station_name, line) |>
+  nrow()
+
+no_vending_entry <- nyc_subway |> 
+  filter(vending == "NO", entry == TRUE) |>
+  distinct(station_name, line) |>
+  nrow()
+
+vending_entry_proportion <- no_vending_entry / no_vending
+
+```
+There are `r nrow(distinct_stations)` distinct stations. `r ada_number` of these distinct stations are ADA compliant. `r vending_entry_proportion` of station entrances/exits without vending allow entry, looking at specifically distinct stations. 
+
+``` {r questionscont }
+
+a_stations = filter(nyc_subway, route1 == "A")
+a_distinct_stations = distinct(a_stations)
+
+a_ada_stations = filter(nyc_subway, route1 == "A", ada == TRUE)
+a_ada_distinct_stations = distinct(a_ada_stations)
+    
+```
+
+There are `r nrow(a_distinct_stations)` distinct stations that service the A train. Of those, `r nrow(a_ada_distinct_stations)` are ADA compliant.
+
+## Problem 2
+
+Below is the code to load trash_wheel.
+
+```{r loaddata2}
+
+trash_wheel <- read_excel('./Trash_Wheel_Data.xlsx', 
+                sheet = 1 , 
+                na = c("NA", ".", "")) |> 
+                janitor::clean_names() |> 
+                select(dumpster:homes_powered) |> 
+                drop_na(dumpster) |>
+                mutate(sports_balls = as.integer(round(sports_balls)),
+                trash_sheet = "Mr. Trash Wheel", 
+                year = as.integer(year))
+
+professor_trash <- read_excel('./Trash_Wheel_Data.xlsx', 
+                    sheet = 2,
+                    na = c("NA", ".", "")) |> 
+                    janitor::clean_names() |> 
+                    drop_na(dumpster) |>
+                    select(dumpster:homes_powered) |>
+                    mutate(
+                      trash_sheet = "Professor",
+                      year = as.integer(year))
+      
+                      
+gwynnda <- read_excel('./Trash_Wheel_Data.xlsx', 
+                    sheet = 3,
+                    skip = 1,
+                    na = c("NA", ".", "")) |> 
+                    janitor::clean_names() |>
+                    select(dumpster:homes_powered) |>
+                    drop_na(dumpster) |>
+                    mutate(
+                      trash_sheet = "Gwynnda",
+                      year = as.integer(year))
+                    
+trash <-bind_rows(trash_wheel, professor_trash, gwynnda)                   
+                   
+```
+There are `r ncol(trash)` variables and `r nrow(trash)` rows in the merged trash dataset. 
+
+```{r profquestion}
+
+       sum <- sum(professor_trash$weight_tons, na.rm = TRUE)
+```
+The professor collected a total of `r sum` tons of trash.
+
+```{r gwynquestion}
+cigs <- gwynnda |>
+  filter(month == "June", year == "2022")
+```
+Gwynnda collected `r cigs$cigarette_butts` cigarette butts in June 2022.
+
+## Problem 3
+
+``` {r loaddata3}
+bakers <- read.csv("./gbb_datasets/bakers.csv", 
+                   na = c("NA", ".", "")) |>
+                   janitor::clean_names() |>
+                   separate(baker_name, into = c("baker", "last_name"), sep = ' ')
+                   
+bakes <- read.csv("./gbb_datasets/bakes.csv",
+                  na = c("NA", ".", "")) |>
+                  janitor::clean_names()
+  
+results <- read.csv("./gbb_datasets/results.csv",
+                    na = c("NA", ".", ""),
+                    skip = 2) |>
+                    janitor::clean_names() |>
+                    drop_na(, result)
+
+bakers <- bakers %>%
+    mutate( baker = ifelse(baker == "Jo","Joanne", baker))
+    bakes$baker <- gsub("\"|'", "", bakes$baker)
+bakes <- bakes %>%
+      mutate( baker = ifelse(baker == "Jo","Joanne", baker))
+
+                          
+anti_join(bakers, bakes, by = "baker")
+anti_join(bakers, results, by = "baker")
+anti_join(bakes, results, by = c("series", "episode"))
+
+
+gbb = 
+  left_join(bakers, results, by = c("baker","series")) |> 
+  left_join(bakes, by = c("baker", "series", "episode")) |> 
+  relocate(series,episode,baker,last_name, baker_age, baker_occupation, hometown, signature_bake,show_stopper,technical,result) |> 
+  arrange(series,baker, episode)
+
+write_csv(gbb, './gbb_datasets/gbb.csv')
+```
+To clean this data, I first separated the full names in the bakers dataset 
+into "baker" and "last_name" to match the other data sets. I used janitor
+for all three data sets, and for results, removed non-data lines and any 
+rows of datas of contestants that had already been eliminated. I then had 
+to fix Joanne Wheatley's name by converting Jo and "Jo" to Joanne. 
+I had to drop the double-quotes and then mutate the baker variable for 
+both data sets, baker and bakes. I then used anti_join on all three combinations, specifically to ensure that Joanne's name was correctly changed. Bakers 
+and bakes had non-matching rows, but I chose to keep them, because they 
+were still contestants on the show. Finally, I used left_join for all three 
+datasets, rearranged the columns and arranged the data to sort by series, 
+then by baker name alphabetically, and then episode. I exported the csv to my 
+directory. The final data set has `r nrow(gbb)` rows and ` r ncol(gbb)` columns.
+
+``` {r readerfriendly}
+
+winners_data <- gbb %>%
+  select(series, episode, baker, last_name, result) %>%
+  filter(series %in% c(5, 6, 7, 8, 9, 10) ) %>%
+  filter(result == "STAR BAKER" | result == "WINNER") %>%
+  arrange(series,episode)
+
+```
+
+Predictable winners were those who had been the Star Baker either directly before the last episode, or several times before. Surprises were winners who weren't Star Bakers in the most recent episodes, which include Seasons 5, 9 and 10.
+
+``` {r viewers}
+
+viewers <- read.csv("./gbb_datasets/viewers.csv", 
+                   na = c("NA", ".", "")) |>
+                   janitor::clean_names()
+print(viewers)
+
+season_5 <- mean(viewers$series_5, na.rm = TRUE)
+season_1 <- mean(viewers$series_1, na.rm = TRUE)
+```
+There was an average of `r season_1` million viewers in Season 1 and an average of `r season_5` 
+million viewers in Season 5.
+
